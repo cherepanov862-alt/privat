@@ -43,25 +43,42 @@ object Repo {
         get() = prefs?.getString("fw", "NFPZ") ?: "NFPZ"
         set(v) { prefs?.edit()?.putString("fw", v)?.apply() }
 
+    var tgToken: String
+        get() = prefs?.getString("tg_token", "") ?: ""
+        set(v) { prefs?.edit()?.putString("tg_token", v)?.apply() }
+
+    /** Единственный chat id, которому разрешено управлять подогревателем. */
+    var tgChat: String
+        get() = prefs?.getString("tg_chat", "") ?: ""
+        set(v) { prefs?.edit()?.putString("tg_chat", v)?.apply() }
+
+    var tgEnabled: Boolean
+        get() = prefs?.getBoolean("tg_on", false) ?: false
+        set(v) { prefs?.edit()?.putBoolean("tg_on", v)?.apply() }
+
+    var tgOffset: Long
+        get() = prefs?.getLong("tg_offset", 0L) ?: 0L
+        set(v) { prefs?.edit()?.putLong("tg_offset", v)?.apply() }
+
     fun samePhone(a: String, b: String): Boolean {
         val x = a.filter { it.isDigit() }.takeLast(10)
         val y = b.filter { it.isDigit() }.takeLast(10)
         return x.isNotEmpty() && x == y
     }
 
-    fun addLog(incoming: Boolean, text: String) {
+    @Synchronized fun addLog(incoming: Boolean, text: String) {
         val list = (log.value + LogEntry(System.currentTimeMillis(), incoming, text)).takeLast(200)
         log.value = list
         saveLog(list)
     }
 
-    fun clearLog() {
+    @Synchronized fun clearLog() {
         log.value = emptyList()
         saveLog(emptyList())
     }
 
     /** Разбор входящего SMS от подогревателя. */
-    fun onIncoming(text: String) {
+    @Synchronized fun onIncoming(text: String) {
         addLog(true, text)
         val old = status.value
         val upper = text.uppercase()

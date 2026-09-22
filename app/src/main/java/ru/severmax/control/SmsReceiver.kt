@@ -15,5 +15,6 @@ class SmsReceiver : BroadcastReceiver() {
         if (!Repo.samePhone(from, Repo.phone)) return
         val body = msgs.joinToString("") { it.messageBody ?: "" }
         Repo.onIncoming(body)
+        Tg.forward(body)
     }
 }

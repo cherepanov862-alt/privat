@@ -1,8 +1,12 @@
 package ru.severmax.control
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -38,6 +42,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -118,7 +123,9 @@ fun App() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { }
     LaunchedEffect(Unit) {
-        launcher.launch(arrayOf(Manifest.permission.SEND_SMS, Manifest.permission.RECEIVE_SMS))
+        val perms = mutableListOf(Manifest.permission.SEND_SMS, Manifest.permission.RECEIVE_SMS)
+        if (Build.VERSION.SDK_INT >= 33) perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        launcher.launch(perms.toTypedArray())
     }
     Scaffold(
         topBar = { Header() },
@@ -344,6 +351,9 @@ fun SettingsScreen() {
     var phone by remember { mutableStateOf(Repo.phone) }
     var code by remember { mutableStateOf(Repo.code) }
     var fw by remember { mutableStateOf(Repo.fw) }
+    var tgToken by remember { mutableStateOf(Repo.tgToken) }
+    var tgChat by remember { mutableStateOf(Repo.tgChat) }
+    var tgOn by remember { mutableStateOf(Repo.tgEnabled) }
 
     Column(
         modifier = Modifier
@@ -397,6 +407,78 @@ fun SettingsScreen() {
                     ) { Text("Слот ${i + 1}") }
                 }
             }
+        }
+
+        Section("Telegram-бот") {
+            Text(
+                "1) Создайте бота у @BotFather (команда /newbot) и вставьте токен.\n" +
+                    "2) Включите бота ниже.\n" +
+                    "3) Напишите боту любое сообщение: он ответит вашим chat id. " +
+                    "Впишите его в поле ниже, после этого бот слушается только вас."
+            )
+            OutlinedTextField(
+                value = tgToken,
+                onValueChange = { tgToken = it; Repo.tgToken = it.trim() },
+                label = { Text("Токен бота") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = tgChat,
+                onValueChange = { tgChat = it; Repo.tgChat = it.trim() },
+                label = { Text("Ваш chat id") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Бот включён", fontWeight = FontWeight.Medium)
+                Switch(
+                    checked = tgOn,
+                    onCheckedChange = { on ->
+                        val svc = Intent(ctx, TelegramService::class.java)
+                        if (on && Repo.tgToken.isBlank()) {
+                            toast(ctx, "Сначала вставьте токен бота")
+                        } else {
+                            tgOn = on
+                            Repo.tgEnabled = on
+                            if (on) ContextCompat.startForegroundService(ctx, svc)
+                            else ctx.stopService(svc)
+                        }
+                    }
+                )
+            }
+            Text(
+                "Телефон с SIM должен быть включён и иметь интернет. " +
+                    "Отключите для приложения экономию заряда, иначе Android может остановить бота. " +
+                    "Команды: ▶ Запуск, ⏹ Стоп, 📊 Статус, /temp 65, /boost 90 30.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Section("Поддержать разработку") {
+            Text("Если приложение оказалось полезным, можно перевести любую сумму по СБП.")
+            Text(
+                "+7 913 281-41-35",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Откройте приложение своего банка → «Переводы» → «По номеру телефона», вставьте номер и укажите сумму сами.",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Button(
+                onClick = {
+                    val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    cm.setPrimaryClip(ClipData.newPlainText("Номер для перевода", "+79132814135"))
+                    toast(ctx, "Номер скопирован")
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("☕ Скопировать номер") }
         }
 
         Section("Коды неисправностей") {
